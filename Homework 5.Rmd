@@ -1,0 +1,155 @@
+---
+title: "Homework 5"
+author: "Nancy Yeung (ny3257) - SDS 315 - [GitHub Repository](https://github.com/0NancyYeung0/Homework5.git)"
+output: pdf_document
+---
+\vspace{-1cm}
+
+```{r global_options, echo=FALSE}
+knitr::opts_chunk$set(fig.height=3, fig.width=8, warning=FALSE, message=FALSE, echo=FALSE)
+```
+
+```{r}
+library(ggplot2)
+library(RColorBrewer)
+library(dplyr)
+library(kableExtra)
+library(knitr)
+library(tidyverse)
+library(mosaic)
+Letters <- read.csv("letter_frequencies.csv")
+Brown <- readLines("brown_sentences.txt")
+```
+------------------------------------------------------------------------
+\begingroup
+\fontsize{12}{14}\selectfont
+**Problem 1:**
+\endgroup
+
+```{r}
+SimBank <- do(100000) * nflip(n = 2021, prob = 0.024)
+
+ggplot(SimBank, aes(x = nflip)) +
+  geom_histogram(binwidth = 1, fill = 'skyblue', color = 'white') +
+  labs(x = 'Number of Flagged Trades', y = 'Frequency', title = 'Iron Bank Simulation') +
+  theme_minimal() +
+  theme(text = element_text(size = 13, family = "serif"))
+
+sum(SimBank >= 70) / 100000
+```
+
+The null hypothesis being tested here is if the rate of flagged trades at Iron Bank is consistent with the SEC's baseline probability of 2.4%. The test statistic used in this Monte Carlo simulation is the number of flagged trades (nflip) in each simulation, assuming a baseline probability of 0.024. The p-value of this simulation is `r sum(SimBank >= 70) / 100000` and since it's less than 0.05 we reject the null hypothesis and conclude that the rate of flagged trades for Iron Bank employees is different from the baseline rate of 2.4% observed by the SEC.
+
+\begingroup
+\fontsize{12}{14}\selectfont
+**Problem 2:**
+\endgroup
+
+```{r}
+SimHealth <- do(100000) * nflip(n = 50, prob = 0.03)
+
+ggplot(SimHealth, aes(x = nflip)) +
+  geom_histogram(binwidth = 1, fill = 'skyblue', color = 'white') +
+  labs(x = 'Number of Code Violations', y = 'Frequency', title = 'Health Inspection Simulation') +
+  theme_minimal() +
+  theme(text = element_text(size = 13, family = "serif"))
+```
+
+The null hypothesis being tested here is if the rate of health code violations at Gourmet Bites is consistent with the city's baseline rate of 3%. The test statistic used in this Monte Carlo simulation is the number of flagged trades (nflip) in each simulation, assuming a baseline probability of 0.03. The p-value of this simulation is `r sum(SimHealth >= 8) / 100000` and since it's less than 0.05 we reject the null hypothesis and conclude that the rate of health code violations at Gourmet Bites is not consistent with the baseline rate of 3% observed by the city.
+
+\begingroup
+\fontsize{12}{14}\selectfont
+**Problem 3:**
+\endgroup
+
+\begingroup
+\fontsize{10}{12}\selectfont
+**Part A: The Null or Reference Distribution**
+\endgroup
+
+```{r}
+calculate_chi_squared = function(sentence, freq_table) {
+  
+  # Ensure letter frequencies are normalized and sum to 1
+  freq_table$Probability = freq_table$Probability / sum(freq_table$Probability)
+  
+  # Remove non-letters and convert to uppercase
+  clean_sentence = gsub("[^A-Za-z]", "", sentence)
+  clean_sentence = toupper(clean_sentence)
+  
+  # Count the occurrences of each letter in the sentence
+  observed_counts = table(factor(strsplit(clean_sentence, "")[[1]], levels = freq_table$Letter))
+  
+  # Calculate expected counts
+  total_letters = sum(observed_counts)
+  expected_counts = total_letters * freq_table$Probability
+  
+  # Chi-squared statistic
+  chi_squared_stat = sum((observed_counts - expected_counts)^2 / expected_counts)
+  
+  return(chi_squared_stat)
+}
+
+BrownChiSquare <- c()
+for (sentence in Brown){
+  XChiSquare <- calculate_chi_squared(sentence, Letters)
+  BrownChiSquare <- c(BrownChiSquare, XChiSquare)
+}
+
+BrownChiSquare <- data.frame(BrownChiSquare)
+ggplot(BrownChiSquare, aes(x = BrownChiSquare)) +
+  geom_histogram( fill = 'skyblue', color = 'white') +
+  labs(x = 'Chi-Squared Statistic', y = 'Frequency', title = 'Distribution of Chi-Squared Statistics') +
+  theme_minimal() +
+  theme(text = element_text(size = 13, family = "serif"))
+```
+
+The graph seen above displays the distribution of Chi-Squared statistics for a set of sentences when compared to a reference letter frequency distribution. Each bar represents a range of Chi-Squared values, indicating how much the letter distribution in each sentence differs from the expected distribution.
+
+\begingroup
+\fontsize{10}{12}\selectfont
+**Part B: Checking for a Watermark**
+\endgroup
+
+```{r}
+TenSentences <- c(
+  "She opened the book and started to read the first chapter, eagerly anticipating what might come next.",
+  "Despite the heavy rain, they decided to go for a long walk in the park, crossing the main avenue by the fountain in the center.",
+  "The museum’s new exhibit features ancient artifacts from various civilizations around the world.",
+  "He carefully examined the document, looking for any clues that might help solve the mystery.",
+  "The students gathered in the auditorium to listen to the guest speaker’s inspiring lecture.",
+  "Feeling vexed after an arduous and zany day at work, she hoped for a peaceful and quiet evening at home, cozying up after a quick dinner with some TV, or maybe a book on her upcoming visit to Auckland.",
+  "The chef demonstrated how to prepare a delicious meal using only locally sourced ingredients, focusing mainly on some excellent dinner recipes from Spain.",
+  "They watched the sunset from the hilltop, marveling at the beautiful array of colors in the sky.",
+  "The committee reviewed the proposal and provided many points of useful feedback to improve the project’s effectiveness.",
+  "Despite the challenges faced during the project, the team worked tirelessly to ensure its successful completion, resulting in a product that exceeded everyone’s expectations"
+)
+
+TenSentencesChiSquared <- c()
+for (sentence in TenSentences){
+  SentenceChiSquared <- calculate_chi_squared(sentence, Letters)
+  TenSentencesChiSquared <- c(TenSentencesChiSquared, SentenceChiSquared)
+}
+
+TenSentencesPValues <- c()
+for (chi in TenSentencesChiSquared){
+  SentencePValues <- sum(BrownChiSquare >= chi) / 56745
+  SentencePValues <- round(SentencePValues, 3) 
+  TenSentencesPValues <- c(TenSentencesPValues, SentencePValues)
+}
+
+TenSentencesChiSquared <- data.frame(TenSentencesChiSquared)
+SentenceCount <- (1:10)
+TenSentencesChiSquared <- cbind(SentenceCount, TenSentencesChiSquared)
+
+TenSentencesPValuesTable <- data.frame(TenSentencesPValues)
+SentenceCount <- c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10")
+TenSentencesPValuesTable <- cbind(SentenceCount, TenSentencesPValues)
+
+TenSentencesPValuesTable <- data.frame(SentenceCount, TenSentencesPValues)
+kable(TenSentencesPValuesTable, format = "latex", booktabs = TRUE, col.names = c("Sentence", "P-Value")) %>%
+  kable_styling(latex_options = c("striped", "hold_position"))
+```
+
+Sentence 6 has a p-value of 0.009, making it not only less than 0.05 but also the lowest p-value of the ten sentences. This indicates that the letter distribution of sentence 6 is significantly different from the typical English letter distribution. Therefore, sentence 6 was most likely produced by and watermarked by a LLM.
+
